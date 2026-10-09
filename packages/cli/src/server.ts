@@ -4,6 +4,9 @@ import http from "node:http";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { fileURLToPath } from "node:url";
+import { NetworkAccess } from "./network.js";
+
+export { LOOPBACK_HOST } from "./network.js";
 
 export type RouteParams = Record<string, string>;
 
@@ -30,6 +33,8 @@ export interface ServerOptions {
 
 export interface ServerHandle {
 	port: number;
+	host: string;
+	reviewHosts: readonly string[];
 	close: () => Promise<void>;
 }
 
@@ -59,11 +64,11 @@ const MIME_TYPES: Record<string, string> = {
 
 const CLI_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_WEB_DIST = path.resolve(CLI_DIR, "..", "web-dist");
-export const LOOPBACK_HOST = "127.0.0.1";
 const DEFAULT_START_PORT = 5391;
 const DEFAULT_MAX_PORT_ATTEMPTS = 100;
 
 export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
+	const network = NetworkAccess.load();
 	const webDist = path.resolve(opts.webDistPath ?? DEFAULT_WEB_DIST);
 	const compiled = (opts.routes ?? []).map(compileRoute);
 	const startPort = opts.port ?? DEFAULT_START_PORT;
@@ -72,6 +77,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
 	for (let i = 0; i < maxPortAttempts; i++) {
 		const port = startPort + i;
 		const server = http.createServer((req, res) => {
+			network.attach(req);
 			handleRequest(req, res, webDist, compiled).catch((err) => {
 				const msg = err instanceof Error ? err.message : String(err);
 				process.stderr.write(`request handler error: ${msg}\n`);
@@ -83,9 +89,11 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
 		});
 
 		try {
-			await listen(server, port);
+			await listen(server, port, network.host);
 			return {
 				port,
+				host: network.host,
+				reviewHosts: network.reviewHosts,
 				close: () =>
 					new Promise<void>((resolve, reject) => {
 						server.close((err) => (err ? reject(err) : resolve()));
@@ -101,7 +109,7 @@ export async function startServer(opts: ServerOptions): Promise<ServerHandle> {
 	);
 }
 
-function listen(server: http.Server, port: number): Promise<void> {
+function listen(server: http.Server, port: number, host: string): Promise<void> {
 	return new Promise<void>((resolve, reject) => {
 		const onError = (err: Error) => reject(err);
 		server.once("error", onError);
@@ -109,7 +117,7 @@ function listen(server: http.Server, port: number): Promise<void> {
 			server.removeListener("error", onError);
 			resolve();
 		});
-		server.listen(port, LOOPBACK_HOST);
+		server.listen(port, host);
 	});
 }
 

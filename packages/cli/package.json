@@ -1,6 +1,6 @@
 {
   "name": "stagereview",
-  "version": "0.1.7",
+  "version": "0.1.7-lan.1",
   "description": "Chapter-style code review against your local git branch.",
   "keywords": [
     "code-review",
@@ -13,13 +13,13 @@
     "gemini",
     "opencode"
   ],
-  "homepage": "https://github.com/ReviewStage/stage-cli#readme",
+  "homepage": "https://github.com/samanthar0se/stage-cli#readme",
   "bugs": {
-    "url": "https://github.com/ReviewStage/stage-cli/issues"
+    "url": "https://github.com/samanthar0se/stage-cli/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ReviewStage/stage-cli.git",
+    "url": "git+https://github.com/samanthar0se/stage-cli.git",
     "directory": "packages/cli"
   },
   "license": "MIT",

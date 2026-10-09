@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import type { StageDb } from "../db/client.js";
 import { chapterRun } from "../db/schema/index.js";
 import { type GitHubRepo, parseGitHubRepo } from "../github/index.js";
+import { NetworkAccess } from "../network.js";
 import type { RouteHandler, RouteParams } from "../server.js";
 import { writeJson } from "./json.js";
 
@@ -66,9 +67,6 @@ export function parseNumber(value: string | null): number | null {
 	return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-/** The server only ever binds to loopback, so a legitimate `Host` is one of these. */
-const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost"]);
-
 /** Hostname from a `Host` header (`host[:port]`), or null if it can't be parsed. */
 function hostHeaderHostname(host: string | undefined): string | null {
 	if (!host) return null;
@@ -80,37 +78,18 @@ function hostHeaderHostname(host: string | undefined): string | null {
 }
 
 /**
- * Reject state-changing requests that could be CSRF or DNS-rebinding vectors
- * against the gh-backed mutations. The server binds to loopback, but a browser
- * on any site can POST to the predictable port and trigger a write.
- *
- * Two checks, both required:
- *
- * 1. **Loopback Host.** The server only binds to `127.0.0.1`, so a legitimate
- *    request always carries a loopback `Host`. This is the anti-DNS-rebinding
- *    guard: an attacker who rebinds their hostname to `127.0.0.1` reaches us
- *    with that hostname in *both* `Origin` and `Host` — defeating a bare
- *    `Origin === Host` check — but the hostname isn't a loopback literal, so we
- *    reject it here. `Host` is mandatory under HTTP/1.1, so this also rejects
- *    requests that omit it.
- * 2. **Same-origin.** Browsers always attach an accurate `Origin` on
- *    cross-origin requests and JS can't forge it, so when an `Origin` is present
- *    its host:port must match the `Host` connected to. This rejects remote sites
- *    and other local origins alike (e.g. a page on `http://localhost:3000`).
- *
- * Non-browser clients (curl, scripts) send no `Origin` and are allowed once the
- * Host check passes — they aren't a CSRF vector. Returns false (and writes 403)
- * when the request must be rejected.
+ * Require an explicitly allowed Host plus same-origin Origin and fetch metadata.
+ * The Host allowlist also rejects DNS rebinding with a matching hostile Origin.
  */
 export function enforceSameOrigin(req: Req, res: Res): boolean {
 	const host = req.headers.host;
 	const hostname = hostHeaderHostname(host);
-	if (hostname === null || !LOOPBACK_HOSTNAMES.has(hostname)) {
+	if (hostname === null || !NetworkAccess.forRequest(req).allowsHostname(hostname)) {
 		writeJson(res, 403, { error: "Cross-origin request rejected" });
 		return false;
 	}
 	// Cross-site subresource loads (e.g. an <img> on a malicious page pointed
-	// at this loopback port) carry no Origin but do carry Sec-Fetch-Site in
+	// at this review port) carry no Origin but do carry Sec-Fetch-Site in
 	// every modern browser; same-origin SPA requests send "same-origin" and
 	// non-browser clients omit the header entirely.
 	const secFetchSite = req.headers["sec-fetch-site"];

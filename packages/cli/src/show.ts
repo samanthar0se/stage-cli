@@ -11,6 +11,7 @@ import { closeDb, getDb } from "./db/client.js";
 import { parseGitDiff } from "./diff-parser.js";
 import { filterFilesForLlm, loadStageIgnore } from "./filter-files.js";
 import { getRawDiffForScope, readRepoContext, readRepoRoot } from "./git.js";
+import { DEFAULT_BIND_HOST, LOOPBACK_HOST } from "./network.js";
 import { commentRoutes } from "./routes/comments.js";
 import { diffRoutes } from "./routes/diff.js";
 import { imageProxyRoutes } from "./routes/image-proxy.js";
@@ -36,7 +37,7 @@ import {
 	type Scope,
 } from "./schema.js";
 import { type DiffScopeOptions, pullRequestNumberFromRef, resolveDiffScope } from "./scope.js";
-import { LOOPBACK_HOST, startServer } from "./server.js";
+import { startServer } from "./server.js";
 import { unescapeLiteralNewlines } from "./unescape.js";
 
 export async function show(jsonPath: string, options: DiffScopeOptions): Promise<void> {
@@ -61,10 +62,17 @@ export async function show(jsonPath: string, options: DiffScopeOptions): Promise
 			...imageProxyRoutes(),
 		],
 	});
-	const { port } = handle;
-	const url = `http://${LOOPBACK_HOST}:${port}/runs/${encodeURIComponent(runId)}`;
+	const { port, host, reviewHosts } = handle;
+	const browserHost = host === DEFAULT_BIND_HOST ? LOOPBACK_HOST : host;
+	const reviewPath = `/runs/${encodeURIComponent(runId)}`;
+	const url = `http://${browserHost}:${port}${reviewPath}`;
 
-	process.stdout.write(`Listening on ${url}\n`);
+	process.stdout.write(`Listening on ${url} (bound to ${host})\n`);
+	for (const reviewHost of reviewHosts) {
+		if (reviewHost !== browserHost) {
+			process.stdout.write(`Network review: http://${reviewHost}:${port}${reviewPath}\n`);
+		}
+	}
 	process.stdout.write("Press Ctrl+C to exit.\n");
 
 	try {

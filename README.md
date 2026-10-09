@@ -25,6 +25,44 @@
   <a href="https://github.com/ReviewStage/stage-cli/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/stagereview.svg" alt="license"></a>
 </p>
 
+## LAN and Tailscale access in this fork
+
+This fork binds the review server to `0.0.0.0` by default and prints network
+review URLs alongside the local browser URL. IPv4 addresses assigned to this
+machine are allowed automatically, including LAN and Tailscale interfaces.
+The upstream project is [ReviewStage/stage-cli](https://github.com/ReviewStage/stage-cli).
+
+For a DNS name such as a Tailscale MagicDNS hostname, create `~/.stage/network.json`:
+
+```json
+{
+  "host": "0.0.0.0",
+  "allowedHosts": ["your-machine.your-tailnet.ts.net"]
+}
+```
+
+`host` must be an IPv4 bind address; use `127.0.0.1` for local-only access.
+`allowedHosts` accepts exact hostnames or IPv4 addresses without ports or wildcards.
+Set `STAGEREVIEW_NETWORK_CONFIG` to use another config file. Restart Stage after
+changing the config. Cross-origin requests and unrecognized Host headers remain
+rejected. Stage has no login: devices that can reach the listening port can use
+the review UI and its actions with this machine's GitHub permissions.
+
+Build and install this fork from source (Node.js 20+):
+
+```bash
+git clone https://github.com/samanthar0se/stage-cli.git
+cd stage-cli
+npx --yes pnpm@10.24.0 install --frozen-lockfile
+npx --yes pnpm@10.24.0 build
+cd packages/cli
+npm pack --pack-destination /tmp
+npm install -g /tmp/stagereview-0.1.7-lan.1.tgz --allow-scripts=better-sqlite3
+```
+
+The npm registry installation below installs upstream Stage. Rebuild and reinstall
+from this clone when updating this fork.
+
 ## Install
 
 ```bash
@@ -44,7 +82,7 @@ npx skills add ReviewStage/stage-cli
 - An AI agent that supports skills
 - GitHub CLI (`gh`) installed and authenticated when reviewing GitHub pull requests
 
-Stage runs locally and opens its review UI in your browser. It does not upload your source code.
+Stage runs on your machine and opens its review UI in your browser. This fork also supports access from other machines as described above. Stage itself does not upload your source code.
 
 ## Uninstall
 

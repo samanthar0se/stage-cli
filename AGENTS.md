@@ -72,7 +72,7 @@ Uses [Commander](https://github.com/tj/commander.js) for subcommand parsing. Add
 
 ### Local Server (`packages/cli/src/server.ts`)
 
-Plain Node `http` server bound to `127.0.0.1`. Route patterns use `:name` placeholders and are compiled to regexes at startup. The server resolves `/api/*` against registered routes and otherwise serves static files from `web-dist/` (next to the bundled CLI) with an `index.html` SPA fallback.
+Plain Node `http` server with per-server network configuration. Read the README’s “LAN and Tailscale access in this fork” section when changing binding, Host allowlists, or network setup. Route patterns use `:name` placeholders and are compiled to regexes at startup. The server resolves `/api/*` against registered routes and otherwise serves static files from `web-dist/` (next to the bundled CLI) with an `index.html` SPA fallback.
 
 - Route handlers live in `packages/cli/src/routes/` — one file per resource (`runs.ts`, `view-state.ts`, `json.ts`).
 - Path traversal is blocked by computing `path.relative(webDist, resolved)` and rejecting any result that escapes the root. **Don't bypass that check** when adding static-serving features.
